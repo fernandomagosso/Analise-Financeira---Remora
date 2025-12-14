@@ -6,8 +6,13 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: true,
+    hmr: {
+        overlay: false
+    }
   },
-  // Garante que o process.env.API_KEY funcione no ambiente cliente
+  resolve: {
+    extensions: ['.js', '.jsx', '.ts', '.tsx', '.json']
+  },
   define: {
     'process.env': process.env
   }
