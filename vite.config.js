@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: './', // Corrige problemas de carregamento de assets em caminhos relativos
+  base: './', 
   server: {
     host: true,
     hmr: {
@@ -12,7 +12,8 @@ export default defineConfig({
     }
   },
   resolve: {
-    extensions: ['.js', '.jsx', '.ts', '.tsx', '.json']
+    // Prioriza arquivos TypeScript para evitar carregar duplicatas JS
+    extensions: ['.tsx', '.ts', '.jsx', '.js', '.json']
   },
   define: {
     'process.env': process.env

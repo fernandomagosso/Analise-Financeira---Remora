@@ -1,15 +1,3 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import App from './App';
-
-const rootElement = document.getElementById('root');
-if (!rootElement) {
-  throw new Error("Could not find root element to mount to");
-}
-
-const root = ReactDOM.createRoot(rootElement);
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
+// ESTE ARQUIVO É UMA DUPLICATA E DEVE SER REMOVIDO.
+// O projeto utiliza index.tsx como ponto de entrada.
+// Por favor, apague index.js e index.jsx.
