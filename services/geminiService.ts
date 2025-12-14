@@ -1,8 +1,14 @@
-import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import { MessageRole, FinancialDataPoint, TradeSignal } from "../types";
 
-// Initialize AI client
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Helper para instanciar o cliente AI com a chave fornecida ou fallback para env
+const getAIClient = (apiKey?: string) => {
+  const key = apiKey || process.env.API_KEY;
+  if (!key) {
+    throw new Error("API Key não configurada. Por favor, adicione sua chave nas configurações.");
+  }
+  return new GoogleGenAI({ apiKey: key });
+};
 
 const TECHNICAL_SYSTEM_INSTRUCTION = `
 Você é um Agente de Análise Gráfica Financeira Sênior.
@@ -66,9 +72,11 @@ Resumo: Max: ${contextData.summary.highestPrice.toFixed(2)} | Min: ${contextData
 export const analyzeFinancialData = async (
   history: { role: MessageRole; text: string }[],
   currentMessage: string,
-  contextData?: { summary: any; recentData: FinancialDataPoint[] }
+  contextData?: { summary: any; recentData: FinancialDataPoint[] },
+  apiKey?: string
 ): Promise<string> => {
   try {
+    const ai = getAIClient(apiKey);
     const chat = ai.chats.create({
       model: "gemini-2.5-flash",
       config: { systemInstruction: TECHNICAL_SYSTEM_INSTRUCTION, temperature: 0.2 },
@@ -80,9 +88,9 @@ export const analyzeFinancialData = async (
 
     const result = await chat.sendMessage({ message: prompt });
     return result.text || "Sem resposta.";
-  } catch (error) {
+  } catch (error: any) {
     console.error("Gemini Error:", error);
-    return "Erro na análise.";
+    return `Erro na análise: ${error.message || "Verifique sua chave de API."}`;
   }
 };
 
@@ -102,9 +110,11 @@ export interface ReportResponse {
 // Função Atualizada para Gerar Relatório Completo (JSON)
 export const generateReport = async (
     userInstruction: string,
-    contextData?: { summary: any; recentData: FinancialDataPoint[] }
+    contextData?: { summary: any; recentData: FinancialDataPoint[] },
+    apiKey?: string
 ): Promise<ReportResponse | null> => {
     try {
+        const ai = getAIClient(apiKey);
         const dataContext = contextData ? formatContextData(contextData) : "";
         const fullPrompt = `DADOS TÉCNICOS DO MERCADO:\n${dataContext}\n\nINSTRUÇÃO ESPECÍFICA DO USUÁRIO PARA O RELATÓRIO:\n${userInstruction || "Faça uma análise geral padrão focada em Swing Trade."}`;
 
@@ -148,9 +158,11 @@ export const generateReport = async (
 
 // Nova função para o Sinal de Dashboard (JSON Estruturado)
 export const generateTradeSignal = async (
-  contextData: { summary: any; recentData: FinancialDataPoint[] }
+  contextData: { summary: any; recentData: FinancialDataPoint[] },
+  apiKey?: string
 ): Promise<TradeSignal | null> => {
   try {
+    const ai = getAIClient(apiKey);
     const dataContext = formatContextData(contextData);
     const prompt = `Analise os últimos dados técnicos. Determine a ação (COMPRA, VENDA ou NEUTRO) com base no cruzamento de preço com médias e estrutura de topos/fundos. Forneça um motivo curto (max 100 caracteres).
     DADOS:

@@ -6,9 +6,10 @@ import { calculateSummary } from '../utils/csvHelper';
 
 interface ChatProps {
   data: FinancialDataPoint[];
+  apiKey?: string;
 }
 
-const Chat: React.FC<ChatProps> = ({ data }) => {
+const Chat: React.FC<ChatProps> = ({ data, apiKey }) => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -30,13 +31,14 @@ const Chat: React.FC<ChatProps> = ({ data }) => {
 
   // Trigger initial analysis when data is loaded
   useEffect(() => {
-    if (data && data.length > 0 && messages.length === 1) {
+    if (data && data.length > 0 && messages.length === 1 && apiKey) {
       handleInitialAnalysis();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data]);
+  }, [data, apiKey]);
 
   const handleInitialAnalysis = async () => {
+    if (!apiKey) return;
     setIsLoading(true);
     const summary = calculateSummary(data);
     const recentData = data.slice(-50); // Get more context for moving averages
@@ -45,7 +47,7 @@ const Chat: React.FC<ChatProps> = ({ data }) => {
     const initialPrompt = "Analise os dados fornecidos aplicando rigorosamente as regras do setup (MM72, Pivots e JMA). Gere o relatório completo com a recomendação final.";
     
     try {
-        const responseText = await analyzeFinancialData([], initialPrompt, { summary, recentData });
+        const responseText = await analyzeFinancialData([], initialPrompt, { summary, recentData }, apiKey);
         
         setMessages(prev => [
             ...prev,
@@ -64,6 +66,18 @@ const Chat: React.FC<ChatProps> = ({ data }) => {
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
+    
+    if (!apiKey) {
+        setMessages(prev => [
+            ...prev,
+            {
+                role: MessageRole.MODEL,
+                text: "Por favor, configure sua Chave de API nas configurações acima para continuar.",
+                timestamp: Date.now()
+            }
+        ]);
+        return;
+    }
 
     const userMsg: ChatMessage = {
       role: MessageRole.USER,
@@ -86,7 +100,8 @@ const Chat: React.FC<ChatProps> = ({ data }) => {
       const responseText = await analyzeFinancialData(
         historyForService,
         userMsg.text,
-        data.length > 0 ? { summary, recentData } : undefined
+        data.length > 0 ? { summary, recentData } : undefined,
+        apiKey
       );
 
       setMessages(prev => [
@@ -102,7 +117,7 @@ const Chat: React.FC<ChatProps> = ({ data }) => {
         ...prev,
         {
           role: MessageRole.MODEL,
-          text: "Erro na análise. Certifique-se que o CSV possui os indicadores corretos.",
+          text: "Erro na análise. Certifique-se que o CSV possui os indicadores corretos e sua chave de API é válida.",
           timestamp: Date.now()
         }
       ]);

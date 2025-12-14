@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Upload, TrendingUp, TrendingDown, Minus, BarChart2, FileText, AlertCircle, Sparkles, Activity } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Upload, TrendingUp, TrendingDown, Minus, BarChart2, FileText, AlertCircle, Sparkles, Activity, Settings, Key, X, CheckCircle, Save } from 'lucide-react';
 import Chart from './components/Chart';
 import AnalysisModal from './components/AnalysisModal';
 import { FinancialDataPoint, TradeSignal } from './types';
@@ -15,6 +15,11 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   
+  // API Key State
+  const [apiKey, setApiKey] = useState<string>('');
+  const [isKeyModalOpen, setIsKeyModalOpen] = useState(false);
+  const [tempKey, setTempKey] = useState('');
+  
   // AI Signal State
   const [tradeSignal, setTradeSignal] = useState<TradeSignal | null>(null);
   const [loadingSignal, setLoadingSignal] = useState(false);
@@ -22,9 +27,43 @@ const App: React.FC = () => {
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // Load API Key from local storage on mount
+  useEffect(() => {
+    const storedKey = localStorage.getItem('gemini_api_key');
+    if (storedKey) {
+      setApiKey(storedKey);
+    } else if (process.env.API_KEY) {
+      // Fallback to env if available (dev mode)
+      setApiKey(process.env.API_KEY);
+    } else {
+        // Force open modal if no key is found on startup
+        setIsKeyModalOpen(true);
+    }
+  }, []);
+
+  const handleSaveKey = () => {
+    if (tempKey.trim()) {
+      localStorage.setItem('gemini_api_key', tempKey.trim());
+      setApiKey(tempKey.trim());
+      setIsKeyModalOpen(false);
+    }
+  };
+
+  const handleRemoveKey = () => {
+      localStorage.removeItem('gemini_api_key');
+      setApiKey('');
+      setTempKey('');
+  };
+
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    if (!apiKey) {
+        setIsKeyModalOpen(true);
+        setError("Por favor, configure sua Chave de API antes de importar.");
+        return;
+    }
 
     setLoadingFile(true);
     setError(null);
@@ -41,7 +80,7 @@ const App: React.FC = () => {
       const summary = calculateSummary(parsedData);
       const recentData = parsedData.slice(-60); 
       
-      generateTradeSignal({ summary, recentData })
+      generateTradeSignal({ summary, recentData }, apiKey)
         .then(signal => setTradeSignal(signal))
         .catch(e => console.error("Failed to generate signal", e))
         .finally(() => setLoadingSignal(false));
@@ -59,7 +98,7 @@ const App: React.FC = () => {
   const summary = calculateSummary(data);
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-200 font-sans selection:bg-emerald-500/30">
+    <div className="min-h-screen bg-slate-900 text-slate-200 font-sans selection:bg-emerald-500/30 relative">
       {/* Navbar */}
       <header className="h-16 border-b border-slate-800 bg-slate-950/50 backdrop-blur-md fixed top-0 w-full z-10 flex items-center px-6 justify-between">
         <div className="flex items-center gap-2">
@@ -75,16 +114,20 @@ const App: React.FC = () => {
            {appStage === 'dashboard' && (
                <button 
                   onClick={() => setIsModalOpen(true)}
-                  className="flex items-center gap-2 px-4 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-sm font-medium rounded-full shadow-lg shadow-emerald-900/40 transition-all transform hover:scale-105"
+                  className="hidden md:flex items-center gap-2 px-4 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-sm font-medium rounded-full shadow-lg shadow-emerald-900/40 transition-all transform hover:scale-105"
                >
                    <Sparkles size={14} />
                    IA Insights
                </button>
            )}
-           <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-xs text-slate-400">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-              Gemini AI Ready
-           </div>
+           
+           <button 
+             onClick={() => { setTempKey(apiKey); setIsKeyModalOpen(true); }}
+             className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all text-xs font-medium ${apiKey ? 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white' : 'bg-red-500/10 border-red-500/50 text-red-400 animate-pulse'}`}
+           >
+              <Settings size={14} />
+              {apiKey ? 'API Conectada' : 'Configurar API'}
+           </button>
         </div>
       </header>
 
@@ -109,8 +152,8 @@ const App: React.FC = () => {
                     </div>
                 )}
                 
-                <label className="cursor-pointer group relative overflow-hidden transition-all text-white px-5 py-2.5 rounded-lg flex items-center gap-2 font-medium shadow-lg shadow-emerald-900/20 bg-emerald-600 hover:bg-emerald-500">
-                    <input type="file" accept=".csv" onChange={handleFileUpload} className="hidden" />
+                <label className={`cursor-pointer group relative overflow-hidden transition-all text-white px-5 py-2.5 rounded-lg flex items-center gap-2 font-medium shadow-lg shadow-emerald-900/20 ${!apiKey ? 'bg-slate-700 opacity-50 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-500'}`}>
+                    <input type="file" accept=".csv" onChange={handleFileUpload} className="hidden" disabled={!apiKey} />
                     {loadingFile ? (
                          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                     ) : (
@@ -139,6 +182,14 @@ const App: React.FC = () => {
                     <p className="text-slate-400">
                         Carregue um arquivo CSV contendo dados do ativo (OHLC) e indicadores (MM72, JMA) para visualizar a análise.
                     </p>
+                    {!apiKey && (
+                        <button 
+                            onClick={() => setIsKeyModalOpen(true)}
+                            className="text-emerald-400 text-sm hover:underline mt-4"
+                        >
+                            Configure sua chave Gemini para continuar
+                        </button>
+                    )}
                 </div>
             </div>
         )}
@@ -249,7 +300,82 @@ const App: React.FC = () => {
          isOpen={isModalOpen} 
          onClose={() => setIsModalOpen(false)} 
          data={data} 
+         apiKey={apiKey}
       />
+
+      {/* API Key Configuration Modal */}
+      {isKeyModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+              <div 
+                  className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
+                  onClick={() => apiKey && setIsKeyModalOpen(false)} 
+              />
+              <div className="relative w-full max-w-md bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-6 animate-fadeInScale">
+                  <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 bg-emerald-500/10 rounded-lg">
+                          <Key className="text-emerald-500" size={24} />
+                      </div>
+                      <h2 className="text-xl font-bold text-white">Configurar Acesso IA</h2>
+                  </div>
+                  
+                  <p className="text-slate-400 text-sm mb-6 leading-relaxed">
+                      Para utilizar os recursos de inteligência artificial (Gemini), é necessário fornecer sua chave de API. Ela será salva apenas no seu navegador.
+                  </p>
+
+                  <div className="space-y-4">
+                      <div>
+                          <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                              Google Gemini API Key
+                          </label>
+                          <input 
+                             type="password"
+                             value={tempKey}
+                             onChange={(e) => setTempKey(e.target.value)}
+                             placeholder="Ex: AIzaSy..."
+                             className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                          />
+                      </div>
+
+                      <div className="flex gap-3 pt-2">
+                          <button 
+                             onClick={handleSaveKey}
+                             className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2"
+                          >
+                              <Save size={18} /> Salvar Chave
+                          </button>
+                          {apiKey && (
+                             <button 
+                                onClick={handleRemoveKey}
+                                className="px-4 bg-slate-800 hover:bg-red-500/10 hover:text-red-400 text-slate-400 font-semibold rounded-lg transition-colors border border-slate-700"
+                             >
+                                 Remover
+                             </button>
+                          )}
+                      </div>
+
+                      {apiKey && (
+                          <div className="flex items-center justify-center gap-2 text-emerald-500 text-xs mt-2">
+                              <CheckCircle size={12} /> Chave configurada
+                          </div>
+                      )}
+                      
+                      <p className="text-center text-xs text-slate-600 mt-4">
+                          Obtenha sua chave gratuitamente no <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-emerald-500 hover:underline">Google AI Studio</a>.
+                      </p>
+                  </div>
+
+                  {/* Close button only if key exists or user wants to cancel without saving (if key already exists) */}
+                  {apiKey && (
+                      <button 
+                         onClick={() => setIsKeyModalOpen(false)}
+                         className="absolute top-4 right-4 text-slate-500 hover:text-white"
+                      >
+                          <X size={20} />
+                      </button>
+                  )}
+              </div>
+          </div>
+      )}
     </div>
   );
 };

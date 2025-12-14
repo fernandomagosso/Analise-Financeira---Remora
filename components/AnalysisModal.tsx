@@ -8,9 +8,10 @@ interface AnalysisModalProps {
   isOpen: boolean;
   onClose: () => void;
   data: FinancialDataPoint[];
+  apiKey?: string;
 }
 
-const AnalysisModal: React.FC<AnalysisModalProps> = ({ isOpen, onClose, data }) => {
+const AnalysisModal: React.FC<AnalysisModalProps> = ({ isOpen, onClose, data, apiKey }) => {
   const [instruction, setInstruction] = useState('');
   const [reportData, setReportData] = useState<ReportResponse | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -35,11 +36,11 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({ isOpen, onClose, data }) 
         const summary = calculateSummary(data);
         const recentData = data.slice(-60);
         
-        const result = await generateReport(instruction, { summary, recentData });
+        const result = await generateReport(instruction, { summary, recentData }, apiKey);
         if (result) {
             setReportData(result);
         } else {
-            setErrorMsg("Não foi possível gerar a análise. Tente novamente.");
+            setErrorMsg("Não foi possível gerar a análise. Verifique sua chave de API e tente novamente.");
         }
     } catch (e) {
         setErrorMsg("Erro de conexão ao gerar o relatório.");
